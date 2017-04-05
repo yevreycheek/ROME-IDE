@@ -1,6 +1,6 @@
 // автор Александрович Алексей Борисович
 //Author: Aleksandrovich Aleksey Borisovich
-//Created: x.x.2017
+//Created: 22.03.2017
 //License: GPL v2
 
 #include <Windows.h>
