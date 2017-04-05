@@ -1,3 +1,8 @@
+// автор Александрович Алексей Борисович
+//Author: Aleksandrovich Aleksey Borisovich
+//Created: x.x.2017
+//License: GPL v2
+
 #include <Windows.h>
 #include <commctrl.h>
 #define ID_EDITCHILD 133
