@@ -1,151 +1,215 @@
-#include <windows.h>
+#include <Windows.h>
+#include <commctrl.h>
+#define ID_EDITCHILD 133
 
-#define IDC_MAIN_BUTTON	101			// Button identifier
-#define IDC_MAIN_EDIT	102			// Edit box identifier
-HWND hEdit;
+HWND hWnd, button1, button2, hwndEdit; // хранитель окон
+HMENU hMenu, hMenu1; // хранитель менюшек 
 
-LRESULT CALLBACK WinProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+char buf[1000]; // переменая для хранения адреса файла 
+HINSTANCE hIn;
+bool fileisOpen;
+HANDLE hFile;
+DWORD dwBytes = 0; int BufSize = 0;
+char *Buffer = { 0 };
 
-int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nShowCmd)
-{
-	WNDCLASSEX wClass;
-	ZeroMemory(&wClass, sizeof(WNDCLASSEX));
-	wClass.cbClsExtra = NULL;
-	wClass.cbSize = sizeof(WNDCLASSEX);
-	wClass.cbWndExtra = NULL;
-	wClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
-	wClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wClass.hIcon = NULL;
-	wClass.hIconSm = NULL;
-	wClass.hInstance = hInst;
-	wClass.lpfnWndProc = (WNDPROC)WinProc;
-	wClass.lpszClassName = "Window Class";
-	wClass.lpszMenuName = NULL;
-	wClass.style = CS_HREDRAW | CS_VREDRAW;
+TCHAR lpszLatin[] = { "Hello world !" }; // начальный текст в окне 
 
-	if (!RegisterClassEx(&wClass))
-	{
-		int nResult = GetLastError();
-		MessageBox(NULL,
-			"Window class creation failed\r\n",
-			"Window Class Failed",
-			MB_ICONERROR);
+void GetFileName(); // функция получения имени файла 
+
+LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM); // прототип функции обработки сообщений (реализация ниже )
+ATOM RegMyWindowClass(HINSTANCE, LPCTSTR); // прототип функции регистрации нашего класса (реализация ниже )
+
+void Draw(HWND hWnd, HWND button, HWND button2) { // функция которая рисует кнопку 
+	button = CreateWindow( // создаём первую кнопку 
+		"button", // класс 
+		"Открыть файл .txt", // надпись внутри кнопки 
+		WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, // стили окна  
+		110, // координата x
+		400, // координата y
+		200, // ширина
+		60, // высота 
+		hWnd, // id родителя 
+		(HMENU)1001, // сообщение отправляемое кнопкой в данном случае 1001
+		(HINSTANCE)GetWindowLong(hWnd, GWL_HINSTANCE), // хз
+		NULL); // хз
+
+	button2 = CreateWindow(
+		"button", // класс 
+		"Батон №2", // надпись внутри кнопки 
+		WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, // стили окна  
+		350, // координата x
+		400, // координата y
+		100, // ширина
+		60, // высота 
+		hWnd, // id родителя 
+		(HMENU)1002, // сообщение отправляемое кнопкой в данном случае 1002
+		(HINSTANCE)GetWindowLong(hWnd, GWL_HINSTANCE), // хз
+		NULL); // хз
+
+
+
+
+}
+
+void messageButtom(WPARAM wParam) { // обработчик нажатия кнопки 
+	if (LOWORD(wParam) == 1001) {
+
+		GetFileName();
+		if (fileisOpen == true) {
+			hFile = CreateFile(buf, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			BufSize = GetFileSize(hFile, NULL); // узнаём размер файла 
+
+			Buffer = new char[BufSize]; // создаём массив символов под размер файла 
+
+			ReadFile(hFile, Buffer, BufSize, &dwBytes, NULL); // считываем файл в массив 
+			CloseHandle(hFile); // закрываем файл 
+
+			SetWindowTextA(hwndEdit, Buffer); // выводим массив в редактор 
+		}
+	}
+	else if (LOWORD(wParam) == 1002) {
+		MessageBox(hWnd, TEXT("Заебала нах овцэ !"), TEXT("событие"), 0);
+	}
+	else if (LOWORD(wParam) == 100) {
+		MessageBox(hWnd, TEXT("Убери руки от кнопки1 меню! "), TEXT("событие"), 0);
+	}
+	else if (LOWORD(wParam) == 101) {
+		MessageBox(hWnd, TEXT("Убери руки от кнопки2 меню! "), TEXT("событие"), 0);
+	}
+	else if (LOWORD(wParam) == 99) {
+		MessageBox(hWnd, TEXT("Убери руки от кнопки Сервис! "), TEXT("событие"), 0);
 	}
 
-	HWND hWnd = CreateWindowEx(NULL,
-		"Window Class",
-		"ROME-IDE",
-		WS_OVERLAPPEDWINDOW,
-		200,
-		200,
-		640,
-		480,
-		NULL,
-		NULL,
-		hInst,
-		NULL);
+}
 
-	if (!hWnd)
-	{
-		int nResult = GetLastError();
 
-		MessageBox(NULL,
-			"Window creation failed\r\n",
-			"Window Creation Failed",
-			MB_ICONERROR);
+
+int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+	LPCTSTR lpzClass = TEXT("My Window Class!"); // тупо имя класса 
+
+
+	if (!RegMyWindowClass(hInstance, lpzClass)) { // пробуем зарегистрировать класс окна , если нет , то возвращаем 1 
+		return 1;
 	}
 
-	ShowWindow(hWnd, nShowCmd);
 
-	MSG msg;
-	ZeroMemory(&msg, sizeof(MSG));
+	RECT screen_rect; // переменная размера экрана пользователя 
 
-	while (GetMessage(&msg, NULL, 0, 0))
-	{
+					  // получаем размер нашего экрана 
+	GetWindowRect(GetDesktopWindow(), &screen_rect);
+	int x = screen_rect.right / 2 - 400; // координаты появления окна (800/2=400)
+	int y = screen_rect.bottom / 2 - 300;// координаты появления окна (600/2=300)
+
+	hWnd = CreateWindow(lpzClass, TEXT("Hello"), // название окна 
+		WS_OVERLAPPEDWINDOW | WS_VISIBLE, x, y, 800, 600, NULL, NULL, // стиль и размер окна
+		hInstance, NULL);
+
+	// рисуем кнопку 
+	Draw(hWnd, button1, button2);
+
+
+	//рисуем менюшки
+	hMenu = CreateMenu(); // создаём меню
+	hMenu1 = CreateMenu(); // создаём подменю
+	AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT)hMenu1, "Файл"); // наполняем его параметрами
+	AppendMenu(hMenu, MF_STRING, 99, "Сервис"); // наполняем его параметрами
+	AppendMenu(hMenu1, MF_STRING, 1001, "Открыть .. "); // наполняем его параметрами
+	AppendMenu(hMenu1, MF_STRING, 101, "кнопка 2"); // наполняем его параметрами
+	SetMenu(hWnd, hMenu); // добавляем меню на главное окно 
+	SetMenu(hWnd, hMenu1); // добавляем меню на главное окно 
+						   //
+
+
+	if (!hWnd) return 2;
+	MSG msg = { 0 };
+	int iGetOk = 0;
+	while ((iGetOk = GetMessage(&msg, NULL, 0, 0)) != 0) {
+		if (iGetOk == -1) return 3;
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
-	}
 
+	}
+	return msg.wParam;
+
+}
+
+
+ATOM RegMyWindowClass(HINSTANCE hInst, LPCTSTR lpzClassName) { // функция регистрации нашего класса
+
+	WNDCLASS wcWindowClass = { 0 }; // Создаём класс . все поля этого класса равны нулю
+
+	wcWindowClass.lpfnWndProc = (WNDPROC)WndProc;
+	wcWindowClass.style = CS_HREDRAW | CS_VREDRAW; //задаём стиль окна 
+	wcWindowClass.hInstance = hInst; // принимает дискрипт экземпляра приложения из аргументов этой функции 
+	wcWindowClass.lpszClassName = lpzClassName; // передаём ему название класса 
+	wcWindowClass.hCursor = LoadCursor(NULL, IDC_ARROW); // подгружаем курсор 
+	wcWindowClass.hbrBackground = (HBRUSH)COLOR_APPWORKSPACE; // задаём цвет окна
+	return RegisterClass(&wcWindowClass); // регистрируем сам класс 
+}
+
+
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {//  функция обработки сообщений
+	switch (message) {
+	case WM_CREATE:
+		hwndEdit = CreateWindowEx(
+			0, "EDIT",   // создаём класс EDIT 
+			NULL,         // без TITLE 
+			WS_CHILD | WS_VISIBLE | WS_VSCROLL |
+			ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL,
+			0, 0, 0, 0,   // set size in WM_SIZE message 
+			hWnd,         // parent window 
+			(HMENU)ID_EDITCHILD,   // edit control ID 
+			(HINSTANCE)GetWindowLong(hWnd, GWL_HINSTANCE),
+			NULL);        // pointer not needed 
+
+						  // Add text to the window. 
+		SendMessage(hwndEdit, WM_SETTEXT, 0, (LPARAM)lpszLatin);
+
+		return 0;
+	case WM_LBUTTONUP:  // реакция на сообщение клика левой клавиши мыши
+	case WM_COMMAND:  // реакция на клик по кнопке 
+		messageButtom(wParam);// функция обработки сообщения она принимает сами сообщения.
+		break;
+	case WM_SIZE:
+		// Make the edit control the size of the window's client area. 
+
+		MoveWindow(hwndEdit,
+			0, 0,                  // starting x- and y-coordinates 
+			LOWORD(lParam),        // width of client area 
+			350,        // height of client area 
+			TRUE);                 // repaint window 
+		return 0;
+	case WM_DESTROY:
+		PostQuitMessage(0); // реакция на сообщение закрытия окна 
+		break;
+	default:
+		// все сообщения не обрабатываемые вами обработает сама винда 
+
+		return DefWindowProc(hWnd, message, wParam, lParam);
+
+	}
 	return 0;
 }
 
-LRESULT CALLBACK WinProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+
+void GetFileName()
 {
-	switch (msg)
+
+	char szFileName[1000] = { 0 };
+	OPENFILENAME OpenFileName;
+	OPENFILENAME ofn;
+	ZeroMemory(&ofn, sizeof(OPENFILENAME));
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.hInstance = hIn;
+	ofn.lpstrFilter = ("Выбери текстовый документ .txt\0*.txt\0\0");
+	ofn.lpstrTitle = "Заголовок";
+	ofn.lpstrFile = szFileName;
+	ofn.nMaxFile = sizeof(szFileName);
+	ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+	if (GetOpenFileName(&ofn))
 	{
-	case WM_CREATE:
-	{
-		// Create an edit box
-		hEdit = CreateWindowEx(WS_EX_CLIENTEDGE,
-			"EDIT",
-			"",
-			WS_CHILD | WS_VISIBLE |
-			ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL,
-			50,
-			100,
-			200,
-			100,
-			hWnd,
-			(HMENU)IDC_MAIN_EDIT,
-			GetModuleHandle(NULL),
-			NULL);
-		HGDIOBJ hfDefault = GetStockObject(DEFAULT_GUI_FONT);
-		SendMessage(hEdit,
-			WM_SETFONT,
-			(WPARAM)hfDefault,
-			MAKELPARAM(FALSE, 0));
-		SendMessage(hEdit,
-			WM_SETTEXT,
-			NULL,
-			(LPARAM)"Вписать сюда текст...");
-
-		// Create a push button
-		HWND hWndButton = CreateWindowEx(NULL,
-			"BUTTON",
-			"OK",
-			WS_TABSTOP | WS_VISIBLE |
-			WS_CHILD | BS_DEFPUSHBUTTON,
-			50,
-			220,
-			100,
-			24,
-			hWnd,
-			(HMENU)IDC_MAIN_BUTTON,
-			GetModuleHandle(NULL),
-			NULL);
-		SendMessage(hWndButton,
-			WM_SETFONT,
-			(WPARAM)hfDefault,
-			MAKELPARAM(FALSE, 0));
+		strcpy_s(buf, szFileName);
+		fileisOpen = true;
 	}
-	break;
-
-	case WM_COMMAND:
-		switch (LOWORD(wParam))
-		{
-		case IDC_MAIN_BUTTON:
-		{
-			char buffer[256];
-			SendMessage(hEdit,
-				WM_GETTEXT,
-				sizeof(buffer) / sizeof(buffer[0]),
-				reinterpret_cast<LPARAM>(buffer));
-			MessageBox(NULL,
-				buffer,
-				"Окно сообщения",
-				MB_ICONINFORMATION);
-		}
-		break;
-		}
-		break;
-
-	case WM_DESTROY:
-	{
-		PostQuitMessage(0);
-		return 0;
-	}
-	break;
-	}
-
-	return DefWindowProc(hWnd, msg, wParam, lParam);
+	else { fileisOpen = false; MessageBox(hWnd, TEXT("Файл не открыт !"), TEXT("событие"), 0); }
 }
